@@ -65,16 +65,106 @@ function badgeClasses(status: MatchStatus): string {
   }
 }
 
+type ButtonVariant = 'primary' | 'secondary' | 'ghost'
+
+function Button({
+  variant,
+  disabled,
+  onClick,
+  children,
+}: {
+  variant: ButtonVariant
+  disabled?: boolean
+  onClick?: () => void
+  children: React.ReactNode
+}) {
+  const base =
+    'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
+  const styles: Record<ButtonVariant, string> = {
+    primary: 'bg-slate-900 text-white hover:bg-slate-800 focus:ring-slate-400',
+    secondary: 'bg-emerald-600 text-white hover:bg-emerald-500 focus:ring-emerald-300',
+    ghost: 'border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 focus:ring-slate-300',
+  }
+
+  return (
+    <button className={`${base} ${styles[variant]}`} onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  )
+}
+
+function FileDropzone({
+  title,
+  subtitle,
+  disabled,
+  onFile,
+}: {
+  title: string
+  subtitle: string
+  disabled?: boolean
+  onFile: (file: File) => void
+}) {
+  const [dragOver, setDragOver] = useState(false)
+  const border = dragOver ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white'
+
+  return (
+    <div
+      className={`rounded-xl border ${border} p-4 transition`}
+      onDragOver={(e) => {
+        e.preventDefault()
+        if (disabled) return
+        setDragOver(true)
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragOver(false)
+        if (disabled) return
+        const file = e.dataTransfer.files?.[0]
+        if (file) onFile(file)
+      }}
+    >
+      <div className="flex flex-col gap-1">
+        <div className="text-sm font-semibold text-slate-900">{title}</div>
+        <div className="text-xs text-slate-500">{subtitle}</div>
+      </div>
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <label className="inline-flex cursor-pointer items-center gap-2">
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            disabled={disabled}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onFile(file)
+            }}
+          />
+          <span className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50">
+            Choose CSV
+          </span>
+          <span className="text-xs text-slate-500">or drag & drop here</span>
+        </label>
+        <div className="text-xs text-slate-500">CSV with headers in first row</div>
+      </div>
+    </div>
+  )
+}
+
 function KpiCard({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-slate-900">{value}</div>
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
+        <div className="h-2 w-2 rounded-full bg-slate-300" />
+      </div>
+      <div className="mt-2 text-2xl font-semibold tabular-nums text-slate-900">{value}</div>
     </div>
   )
 }
 
 function DataPreview({ dataset }: { dataset: CsvDataset }) {
+  const [open, setOpen] = useState(true)
   const headers = dataset.headers.slice(0, 6)
   const rows = dataset.rows.slice(0, 5)
   return (
@@ -84,10 +174,14 @@ function DataPreview({ dataset }: { dataset: CsvDataset }) {
           <div className="text-sm font-semibold text-slate-900">{dataset.name}</div>
           <div className="text-xs text-slate-500">{dataset.rows.length} rows • {dataset.headers.length} columns</div>
         </div>
+        <Button variant="ghost" onClick={() => setOpen((v) => !v)}>
+          {open ? 'Hide preview' : 'Show preview'}
+        </Button>
       </div>
-      <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
+      {open && (
+        <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
         <table className="min-w-[560px] w-full text-left text-xs">
-          <thead className="bg-slate-50 text-slate-600">
+          <thead className="sticky top-0 bg-slate-50 text-slate-600">
             <tr>
               {headers.map((h) => (
                 <th key={h} className="whitespace-nowrap px-3 py-2 font-medium">
@@ -98,7 +192,7 @@ function DataPreview({ dataset }: { dataset: CsvDataset }) {
           </thead>
           <tbody>
             {rows.map((row, idx) => (
-              <tr key={idx} className="border-t border-slate-200">
+              <tr key={idx} className="border-t border-slate-200 even:bg-slate-50/40">
                 {headers.map((h) => (
                   <td key={h} className="whitespace-nowrap px-3 py-2 text-slate-900">
                     {row[h] ?? ''}
@@ -108,7 +202,8 @@ function DataPreview({ dataset }: { dataset: CsvDataset }) {
             ))}
           </tbody>
         </table>
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -340,103 +435,146 @@ function App() {
       })
   }, [result, search, statusFilter])
 
+  const filterChips = useMemo(() => {
+    if (!result) return [] as Array<{ key: MatchStatus | 'all'; label: string; count: number }>
+    return [
+      { key: 'all' as const, label: 'All', count: result.rows.length },
+      { key: 'matched' as const, label: 'Matched', count: result.summary.matched },
+      { key: 'mismatched' as const, label: 'Mismatched', count: result.summary.mismatched },
+      {
+        key: 'missing_in_left' as const,
+        label: 'Missing in Left',
+        count: result.summary.missingInLeft,
+      },
+      {
+        key: 'missing_in_right' as const,
+        label: 'Missing in Right',
+        count: result.summary.missingInRight,
+      },
+      { key: 'duplicate_key' as const, label: 'Duplicate Key', count: result.summary.duplicateKey },
+    ]
+  }, [result])
+
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900">Smart Reconciliation Visualizer</h1>
-              <p className="mt-1 text-sm text-slate-600">
-                Upload two financial datasets (CSV), reconcile them, and explore discrepancies.
-              </p>
+      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/80 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-900 to-slate-600 text-white shadow-sm">
+                <span className="text-sm font-semibold">SR</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold leading-tight text-slate-900 sm:text-xl">Smart Reconciliation Visualizer</h1>
+                <p className="mt-0.5 text-sm text-slate-600">
+                  Compare 2 CSV datasets and spot mismatches fast.
+                </p>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-                onClick={loadSamples}
-                disabled={isWorking}
-              >
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" onClick={loadSamples} disabled={isWorking}>
                 Load sample data
-              </button>
-              <button
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={runReconciliation}
                 disabled={isWorking || !leftDataset || !rightDataset}
               >
                 Run reconciliation
-              </button>
+              </Button>
             </div>
           </div>
+
           {error && (
-            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">{error}</div>
+            <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+              {error}
+            </div>
           )}
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
+          <div className="font-semibold text-slate-900">Quick steps</div>
+          <ol className="mt-1 list-decimal pl-5 text-slate-600">
+            <li>Upload (or paste) both datasets</li>
+            <li>Select key columns and optional amount/date columns</li>
+            <li>Run reconciliation and filter/search results</li>
+          </ol>
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Left dataset</div>
                 <div className="text-xs text-slate-500">Example: purchase register</div>
               </div>
             </div>
-            <div className="mt-3 flex flex-col gap-3">
-              <input
-                type="file"
-                accept=".csv,text/csv"
+
+            <div className="mt-4 grid gap-4">
+              <FileDropzone
+                title="Upload CSV"
+                subtitle="Drop a file here or choose from your device"
                 disabled={isWorking}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void loadFromFile('left', file)
-                }}
+                onFile={(file) => void loadFromFile('left', file)}
               />
-              <textarea
-                className="h-28 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-slate-400"
-                placeholder="Or paste CSV here (with headers in first row)…"
-                value={leftText}
-                onChange={(e) => setLeftText(e.target.value)}
-              />
-              <button
-                className="self-start rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50 disabled:opacity-60"
-                onClick={() => void loadFromText('left', leftText)}
-                disabled={isWorking || !leftText.trim()}
-              >
-                Load left from pasted CSV
-              </button>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm font-semibold text-slate-900">Or paste CSV</div>
+                <div className="mt-1 text-xs text-slate-500">Paste text including header row</div>
+                <textarea
+                  className="mt-3 h-28 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-slate-400"
+                  placeholder="InvoiceNo,Date,Vendor,Amount\nP-1001,2025-12-01,ABC,1000"
+                  value={leftText}
+                  onChange={(e) => setLeftText(e.target.value)}
+                />
+                <div className="mt-3">
+                  <Button
+                    variant="ghost"
+                    onClick={() => void loadFromText('left', leftText)}
+                    disabled={isWorking || !leftText.trim()}
+                  >
+                    Load from pasted CSV
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div>
               <div className="text-sm font-semibold text-slate-900">Right dataset</div>
               <div className="text-xs text-slate-500">Example: sales register</div>
             </div>
-            <div className="mt-3 flex flex-col gap-3">
-              <input
-                type="file"
-                accept=".csv,text/csv"
+
+            <div className="mt-4 grid gap-4">
+              <FileDropzone
+                title="Upload CSV"
+                subtitle="Drop a file here or choose from your device"
                 disabled={isWorking}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void loadFromFile('right', file)
-                }}
+                onFile={(file) => void loadFromFile('right', file)}
               />
-              <textarea
-                className="h-28 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-slate-400"
-                placeholder="Or paste CSV here (with headers in first row)…"
-                value={rightText}
-                onChange={(e) => setRightText(e.target.value)}
-              />
-              <button
-                className="self-start rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50 disabled:opacity-60"
-                onClick={() => void loadFromText('right', rightText)}
-                disabled={isWorking || !rightText.trim()}
-              >
-                Load right from pasted CSV
-              </button>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm font-semibold text-slate-900">Or paste CSV</div>
+                <div className="mt-1 text-xs text-slate-500">Paste text including header row</div>
+                <textarea
+                  className="mt-3 h-28 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-slate-400"
+                  placeholder="InvoiceNo,Date,Customer,Amount\nP-1001,2025-12-01,ABC,1000"
+                  value={rightText}
+                  onChange={(e) => setRightText(e.target.value)}
+                />
+                <div className="mt-3">
+                  <Button
+                    variant="ghost"
+                    onClick={() => void loadFromText('right', rightText)}
+                    disabled={isWorking || !rightText.trim()}
+                  >
+                    Load from pasted CSV
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -448,7 +586,7 @@ function App() {
           </div>
         )}
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-sm font-semibold text-slate-900">Matching configuration</div>
@@ -584,37 +722,42 @@ function App() {
               </div>
             )}
 
-            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-sm font-semibold text-slate-900">Results</div>
                   <div className="text-xs text-slate-500">{filteredRows.length} rows shown</div>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <select
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as MatchStatus | 'all')}
-                  >
-                    <option value="all">All statuses</option>
-                    <option value="matched">Matched</option>
-                    <option value="mismatched">Mismatched</option>
-                    <option value="missing_in_left">Missing in Left</option>
-                    <option value="missing_in_right">Missing in Right</option>
-                    <option value="duplicate_key">Duplicate Key</option>
-                  </select>
-                  <input
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-400 sm:w-80"
-                    placeholder="Search key, reasons, values…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
+                <input
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-400 sm:w-80"
+                  placeholder="Search key, reasons, values…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {filterChips.map((chip) => {
+                  const active = statusFilter === chip.key
+                  return (
+                    <button
+                      key={chip.key}
+                      className={
+                        active
+                          ? 'rounded-full bg-slate-900 px-3 py-1.5 text-xs font-medium text-white'
+                          : 'rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50'
+                      }
+                      onClick={() => setStatusFilter(chip.key)}
+                    >
+                      {chip.label} <span className={active ? 'text-white/80' : 'text-slate-500'}>({chip.count})</span>
+                    </button>
+                  )
+                })}
               </div>
 
               <div className="mt-4 overflow-auto rounded-lg border border-slate-200">
                 <table className="min-w-[960px] w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
                     <tr>
                       <th className="px-3 py-2 font-medium">Status</th>
                       <th className="px-3 py-2 font-medium">Key</th>
@@ -625,7 +768,10 @@ function App() {
                   </thead>
                   <tbody>
                     {filteredRows.map((r, idx) => (
-                      <tr key={`${r.status}-${r.key}-${idx}`} className="border-t border-slate-200">
+                      <tr
+                        key={`${r.status}-${r.key}-${idx}`}
+                        className="border-t border-slate-200 odd:bg-white even:bg-slate-50/40 hover:bg-slate-50"
+                      >
                         <td className="px-3 py-2">
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ring-1 ring-inset ${badgeClasses(
@@ -649,7 +795,7 @@ function App() {
         )}
       </main>
 
-      <footer className="border-t border-slate-200 bg-white">
+      <footer className="border-t border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 py-4 text-xs text-slate-500 sm:px-6 lg:px-8">
           Tip: Start with one key column (e.g., InvoiceNo), then add amount/date comparisons.
         </div>

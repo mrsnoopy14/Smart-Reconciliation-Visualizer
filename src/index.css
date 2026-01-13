@@ -14,7 +14,11 @@ body {
 
 body {
   margin: 0;
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100 text-slate-900;
+}
+
+#root {
+  min-height: 100%;
 }
 
 * {
