@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -67,6 +67,70 @@ function badgeClasses(status: MatchStatus): string {
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost'
 
+function TiltCard({
+  className,
+  children,
+}: {
+  className?: string
+  children: React.ReactNode
+}) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const raf = useRef<number | null>(null)
+
+  function canHoverFinePointer(): boolean {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia?.('(hover: hover) and (pointer: fine)')?.matches ?? false
+  }
+
+  function schedule(fn: () => void) {
+    if (raf.current) cancelAnimationFrame(raf.current)
+    raf.current = requestAnimationFrame(fn)
+  }
+
+  function handleMove(e: React.MouseEvent<HTMLDivElement>) {
+    const el = ref.current
+    if (!el) return
+    if (!canHoverFinePointer()) return
+
+    const rect = el.getBoundingClientRect()
+    const x = (e.clientX - rect.left) / rect.width
+    const y = (e.clientY - rect.top) / rect.height
+
+    const rotateY = (x - 0.5) * 7
+    const rotateX = (0.5 - y) * 7
+
+    const mx = `${Math.round(x * 100)}%`
+    const my = `${Math.round(y * 100)}%`
+
+    schedule(() => {
+      el.style.setProperty('--mx', mx)
+      el.style.setProperty('--my', my)
+      el.style.transform = `translateY(-4px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
+    })
+  }
+
+  function handleLeave() {
+    const el = ref.current
+    if (!el) return
+    schedule(() => {
+      el.style.removeProperty('--mx')
+      el.style.removeProperty('--my')
+      el.style.removeProperty('transform')
+    })
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={`card3d card3d-hover ${className ?? ''}`}
+      onMouseMove={handleMove}
+      onMouseLeave={handleLeave}
+    >
+      {children}
+    </div>
+  )
+}
+
 function Button({
   variant,
   disabled,
@@ -79,7 +143,7 @@ function Button({
   children: React.ReactNode
 }) {
   const base =
-    'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
+    'btn3d inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
   const styles: Record<ButtonVariant, string> = {
     primary: 'bg-slate-900 text-white hover:bg-slate-800 focus:ring-slate-400',
     secondary: 'bg-emerald-600 text-white hover:bg-emerald-500 focus:ring-emerald-300',
@@ -105,11 +169,11 @@ function FileDropzone({
   onFile: (file: File) => void
 }) {
   const [dragOver, setDragOver] = useState(false)
-  const border = dragOver ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white'
+  const border = dragOver ? 'border-slate-900 bg-white/70' : 'border-slate-200 bg-white/60'
 
   return (
     <div
-      className={`rounded-xl border ${border} p-4 transition`}
+      className={`card3d card3d-hover rounded-xl border ${border} p-4`}
       onDragOver={(e) => {
         e.preventDefault()
         if (disabled) return
@@ -153,7 +217,7 @@ function FileDropzone({
 
 function KpiCard({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="card3d card3d-hover rounded-xl p-4">
       <div className="flex items-center justify-between">
         <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
         <div className="h-2 w-2 rounded-full bg-slate-300" />
@@ -168,7 +232,7 @@ function DataPreview({ dataset }: { dataset: CsvDataset }) {
   const headers = dataset.headers.slice(0, 6)
   const rows = dataset.rows.slice(0, 5)
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="card3d card3d-hover rounded-xl p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-slate-900">{dataset.name}</div>
@@ -457,11 +521,11 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/80 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/55 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-900 to-slate-600 text-white shadow-sm">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-900 to-indigo-700 text-white shadow-sm ring-1 ring-white/30">
                 <span className="text-sm font-semibold">SR</span>
               </div>
               <div>
@@ -493,18 +557,18 @@ function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
+      <main className="scene mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <TiltCard className="mb-4 rounded-2xl p-5 text-sm text-slate-700">
           <div className="font-semibold text-slate-900">Quick steps</div>
           <ol className="mt-1 list-decimal pl-5 text-slate-600">
             <li>Upload (or paste) both datasets</li>
             <li>Select key columns and optional amount/date columns</li>
             <li>Run reconciliation and filter/search results</li>
           </ol>
-        </div>
+        </TiltCard>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <TiltCard className="rounded-2xl p-5">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Left dataset</div>
@@ -520,7 +584,7 @@ function App() {
                 onFile={(file) => void loadFromFile('left', file)}
               />
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="card3d rounded-xl p-4">
                 <div className="text-sm font-semibold text-slate-900">Or paste CSV</div>
                 <div className="mt-1 text-xs text-slate-500">Paste text including header row</div>
                 <textarea
@@ -540,9 +604,9 @@ function App() {
                 </div>
               </div>
             </div>
-          </div>
+          </TiltCard>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <TiltCard className="rounded-2xl p-5">
             <div>
               <div className="text-sm font-semibold text-slate-900">Right dataset</div>
               <div className="text-xs text-slate-500">Example: sales register</div>
@@ -556,7 +620,7 @@ function App() {
                 onFile={(file) => void loadFromFile('right', file)}
               />
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="card3d rounded-xl p-4">
                 <div className="text-sm font-semibold text-slate-900">Or paste CSV</div>
                 <div className="mt-1 text-xs text-slate-500">Paste text including header row</div>
                 <textarea
@@ -576,7 +640,7 @@ function App() {
                 </div>
               </div>
             </div>
-          </div>
+          </TiltCard>
         </div>
 
         {(leftDataset || rightDataset) && (
@@ -586,7 +650,7 @@ function App() {
           </div>
         )}
 
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <TiltCard className="mt-6 rounded-2xl p-5">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-sm font-semibold text-slate-900">Matching configuration</div>
@@ -597,7 +661,7 @@ function App() {
           </div>
 
           <div className="mt-4 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="card3d rounded-xl p-4">
               <div className="text-sm font-semibold text-slate-900">Left mapping</div>
               <div className="mt-4 grid gap-4">
                 <KeyColumnsPicker
@@ -627,7 +691,7 @@ function App() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="card3d rounded-xl p-4">
               <div className="text-sm font-semibold text-slate-900">Right mapping</div>
               <div className="mt-4 grid gap-4">
                 <KeyColumnsPicker
@@ -674,7 +738,7 @@ function App() {
               <div className="mt-1 text-xs text-slate-500">Absolute difference allowed (e.g., 0.01 or 1.00)</div>
             </label>
           </div>
-        </div>
+        </TiltCard>
 
         {result && (
           <div className="mt-6">
@@ -689,7 +753,7 @@ function App() {
 
             {charts && (
               <div className="mt-4 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="card3d card3d-hover rounded-xl p-4">
                   <div className="text-sm font-semibold text-slate-900">Status breakdown</div>
                   <div className="mt-3 h-64">
                     <ResponsiveContainer width="100%" height="100%">
@@ -705,7 +769,7 @@ function App() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="card3d card3d-hover rounded-xl p-4">
                   <div className="text-sm font-semibold text-slate-900">Counts</div>
                   <div className="mt-3 h-64">
                     <ResponsiveContainer width="100%" height="100%">
@@ -722,7 +786,7 @@ function App() {
               </div>
             )}
 
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <TiltCard className="mt-6 rounded-2xl p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-sm font-semibold text-slate-900">Results</div>
@@ -790,12 +854,12 @@ function App() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </TiltCard>
           </div>
         )}
       </main>
 
-      <footer className="border-t border-slate-200 bg-white/80 backdrop-blur">
+      <footer className="border-t border-slate-200 bg-white/55 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 py-4 text-xs text-slate-500 sm:px-6 lg:px-8">
           Tip: Start with one key column (e.g., InvoiceNo), then add amount/date comparisons.
         </div>

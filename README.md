@@ -84,6 +84,22 @@ export default defineConfig([
 
   ## Deployment (Live Demo)
 
+  ### GitHub Pages (recommended)
+
+  This repo includes a GitHub Actions workflow that deploys the built `dist/` folder to GitHub Pages.
+
+  1. Create a new GitHub repository
+  2. Add the remote and push:
+
+  ```bash
+  git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPO_NAME>.git
+  git push -u origin main
+  ```
+
+  3. In GitHub repo settings → **Pages**:
+    - Set **Source** to **GitHub Actions**
+  4. Pushes to `main` will deploy automatically.
+
   ### Vercel
 
   1. Push this repo to GitHub
@@ -99,4 +115,6 @@ export default defineConfig([
 
   ## Live Demo URL
 
-  TODO: add your deployed URL here.
+  - https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/
+
+  If you still see an older UI, do a hard refresh (Ctrl+F5) or open in Incognito.
