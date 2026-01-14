@@ -58,6 +58,8 @@ export default defineConfig([
 
   ## Smart Reconciliation Visualizer
 
+  Live demo: [Smart Reconciliation Visualizer](https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/)
+
   Interactive dashboard to reconcile two financial datasets (CSV) and quickly identify:
 
   - Matched records
@@ -67,7 +69,7 @@ export default defineConfig([
 
   ### Live Demo
 
-  - https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/
+  - [https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/](https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/)
 
   If the live site ever looks outdated, hard refresh (`Ctrl+F5`) or open in Incognito.
 
