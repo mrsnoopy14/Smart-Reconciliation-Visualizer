@@ -1,224 +1,131 @@
-# React + TypeScript + Vite
+# Smart Reconciliation Visualizer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Live demo: [https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/](https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/)
 
-Currently, two official plugins are available:
+Smart Reconciliation Visualizer is an interactive dashboard to reconcile two financial datasets (CSV) and quickly identify:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Matched records
+- Mismatched records (with reasons)
+- Missing records (present in one dataset but not the other)
+- Duplicate keys (ambiguous matches)
 
-## React Compiler
+If the live site ever looks outdated, hard refresh (`Ctrl+F5`) or open in Incognito.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Deliverables (Task Coverage)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Upload/Input:** Upload CSV files or paste CSV text for both datasets.
+- **Reconcile:** Match records using user-selected key columns; optionally compare amount/date.
+- **Output categories:** matched, mismatched, missing in left/right, and duplicate-key.
+- **Visualization:** KPI summary + charts to understand results at a glance.
+- **Explore results:** Filter by status + search across key/reasons/row previews.
+- **Deployment:** Hosted as a static site via GitHub Pages.
 
-```js
-export default defineConfig([
-  # Smart Reconciliation Visualizer
+---
 
-  Interactive dashboard that helps reconcile two financial datasets (CSV) by identifying:
+## How to Run (Local)
 
-  - Records that match
-  - Records that mismatch (with reasons)
-  - Records missing from either dataset
+Prerequisites: Node.js 18+
 
-  ## Features
+```bash
+npm install
+npm run dev
+```
 
-  - Upload two CSVs (or paste CSV text)
-  - Configurable matching: key columns (required) + optional amount/date comparisons
-  - Summary KPIs + charts
-  - Search and filter results (by status)
-  - Sample datasets included
+Build + preview production bundle:
 
-  ## Approach & Technical Decisions
+```bash
+npm run build
+npm run preview
+```
 
-  - **Client-only app (no backend):** simplifies setup and deployment.
-  - **CSV parsing:** `papaparse` parses into row objects using the first row as headers.
-  - **Reconciliation logic:** build an index (“bucket map”) on the right dataset using selected key columns, then walk the left dataset and classify:
-    - `matched` when optional comparisons pass
-    - `mismatched` when comparisons fail (reasons are shown)
-    - `missing_in_right` / `missing_in_left` when no matching key exists
-    - `duplicate_key` when the right dataset contains multiple rows for the same key
-  - **Visualization:** `recharts` for simple, readable charts.
+---
 
-  Core logic lives in:
+## How to Use
 
-  - [src/lib/reconcile.ts](src/lib/reconcile.ts)
-  - [src/lib/csv.ts](src/lib/csv.ts)
+1. Load both datasets (Left and Right) via upload or paste.
+2. Select key columns for each dataset.
+3. Optionally select amount/date columns and set an amount tolerance.
+4. Click **Run reconciliation**.
+5. Use filter chips + search to explore mismatches/missing/duplicates.
 
-  ## Assumptions
+---
 
-  - Input files are CSV with headers in the first row.
-  - Keys are compared after trim + lowercasing.
-  - Amounts remove common thousands separators and currency symbols; tolerance is an **absolute** value.
-  - Dates are normalized to `YYYY-MM-DD` when parseable.
+## Approach & Technical Decisions
 
-  ## Smart Reconciliation Visualizer
+### Client-only (no backend)
 
-  Live demo: [Smart Reconciliation Visualizer](https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/)
+All parsing and reconciliation runs in the browser.
 
-  Interactive dashboard to reconcile two financial datasets (CSV) and quickly identify:
+Why: simplifies setup, keeps data local, and makes deployment easy (static hosting).
 
-  - Matched records
-  - Mismatched records (with reasons)
-  - Missing records (present in one dataset but not the other)
-  - Duplicate keys (ambiguous matches)
+### CSV parsing
 
-  ### Live Demo
+We use `papaparse` to parse CSV reliably into:
 
-  - [https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/](https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/)
+- `headers: string[]`
+- `rows: Array<Record<string, string>>`
 
-  If the live site ever looks outdated, hard refresh (`Ctrl+F5`) or open in Incognito.
+Why: CSV has edge cases (quotes, commas, newlines). PapaParse handles real-world CSVs well.
 
-  ---
+Core code: `src/lib/csv.ts`
 
-  ## Project Task Coverage (What This App Delivers)
+### Reconciliation engine
 
-  - **Upload/Input:** Upload CSV files or paste CSV text for both datasets.
-  - **Reconcile:** Match records using user-selected key columns; optionally compare amount/date.
-  - **Output categories:** matched, mismatched, missing in left/right, and duplicate-key.
-  - **Visualization:** KPI summary + charts to understand results at a glance.
-  - **Explore results:** Filter by status + search across key/reasons/row previews.
-  - **Deployment:** Hosted as a static site via GitHub Pages.
+1. Build a composite key from user-selected key columns (e.g., `InvoiceNo` or `InvoiceNo + Vendor`).
+2. Index the right dataset by this key (bucket map).
+3. Scan the left dataset and classify each record.
+4. Detect right-side duplicates (multiple rows share one key) and report them as `duplicate_key`.
 
-  ---
+Why:
 
-  ## Features
+- Composite keys are practical for real financial data.
+- Index+scan is much faster than comparing every row to every other row.
+- Duplicates are a common real-world reconciliation issue and should not be misreported as “missing”.
 
-  - Upload two CSVs (Left + Right) or paste CSV text
-  - Auto-suggest common columns (invoice/id, amount, date) to speed setup
-  - Configurable matching:
-    - Key columns (required)
-    - Amount column (optional) with tolerance
-    - Date column (optional)
-  - KPI cards + charts (pie + bar)
-  - Results table with filter chips + search
-  - Sample datasets included for demos
+Core code: `src/lib/reconcile.ts`
 
-  ---
+### Visualization + exploration
 
-  ## How It Works (Interview-Oriented Explanation)
+- KPIs and charts (Recharts) summarize results quickly.
+- Search + filter chips support row-level investigation.
 
-  ### 1) CSV Parsing
+Why: reconciliation workflows need both summary and drill-down.
 
-  CSV files/text are parsed in the browser using `papaparse` into:
+---
 
-  - `headers: string[]`
-  - `rows: Array<Record<string, string>>`
+## Assumptions
 
-  Why: CSV parsing is tricky (quotes, commas, line breaks). PapaParse handles real-world CSVs reliably.
+- Inputs are CSV with headers in the first row.
+- Matching is driven by user-selected key columns.
+- Amount tolerance is an **absolute** difference (e.g., 0.01 or 1.00).
+- Date comparison is optional; if enabled, values are compared as strings (based on what’s in the CSV).
 
-  Core code: `src/lib/csv.ts`
+---
 
-  ### 2) Matching Key (Composite Key)
+## Tech Stack
 
-  The user selects “key columns” for each dataset (e.g., `InvoiceNo`, or `InvoiceNo + Vendor`).
-  Those values are combined into a single composite key so that one transaction can be uniquely identified.
+- Vite + React + TypeScript
+- Tailwind CSS
+- PapaParse
+- Recharts
+- GitHub Pages (GitHub Actions)
 
-  Why: Financial data rarely has a perfect single ID across systems; composite keys are practical.
+---
 
-  ### 3) Fast Reconciliation (Index + Scan)
+## Sample Data
 
-  The reconciliation engine builds an index (bucket map) for one side (right dataset) keyed by the composite key.
-  Then it scans the other side (left dataset) and looks up matches.
+Use the **Load sample data** button, or open:
 
-  Why: This avoids slow nested loops and scales much better than comparing every row to every other row.
+- `public/samples/purchases.csv`
+- `public/samples/sales.csv`
 
-  Core code: `src/lib/reconcile.ts`
+---
 
-  ### 4) Status Classification
+## Deployment
 
-  Each output row is classified into one of:
+GitHub Pages is configured via GitHub Actions:
 
-  - `matched`: key found and optional comparisons pass
-  - `mismatched`: key found but amount/date comparisons fail
-  - `missing_in_right`: left row has no match in right
-  - `missing_in_left`: right row has no match in left
-  - `duplicate_key`: multiple right rows share the same key (ambiguous)
-
-  Why duplicates matter: duplicates are a common reconciliation issue; treating them separately prevents misleading “missing” results.
-
-  ### 5) Visual + Searchable Output
-
-  The UI shows:
-
-  - KPI cards for quick counts
-  - Charts for distribution of statuses
-  - A searchable/filterable table for row-level investigation
-
-  Why: Reconciliation requires both high-level health metrics and row-level drill-down.
-
-  ---
-
-  ## Tech Stack
-
-  - **Vite + React + TypeScript** (fast dev/build + safe types)
-  - **Tailwind CSS** (quickly build a clean dashboard UI)
-  - **PapaParse** (robust CSV parsing in-browser)
-  - **Recharts** (charts for summary visualization)
-  - **GitHub Pages (Actions)** (free static hosting for a live demo)
-
-  ---
-
-  ## Run Locally
-
-  Prerequisites: Node.js 18+
-
-  ```bash
-  npm install
-  npm run dev
-  ```
-
-  Open the local URL printed in the terminal.
-
-  Build production bundle:
-
-  ```bash
-  npm run build
-  npm run preview
-  ```
-
-  ---
-
-  ## How To Use
-
-  1. Load both datasets (Left and Right) via upload or paste.
-  2. Select key columns for each dataset.
-  3. Optionally select amount/date columns and set an amount tolerance.
-  4. Click **Run reconciliation**.
-  5. Use filter chips + search to explore mismatches/missing/duplicates.
-
-  ---
-
-  ## Sample Data
-
-  Use the **Load sample data** button, or open:
-
-  - public/samples/purchases.csv
-  - public/samples/sales.csv
-
-  ---
-
-  ## Deployment
-
-  ### GitHub Pages (already configured)
-
-  This repo includes a GitHub Actions workflow that builds the app and deploys `dist/` to GitHub Pages.
-
-  Key config:
-
-  - `.github/workflows/deploy-pages.yml` (build + deploy)
-  - `vite.config.ts` uses `base: './'` so assets work on GitHub Pages subpaths
-
-  ---
-
-  ## Project Structure (Quick Map)
-
-  - `src/App.tsx` — UI, state management, charts, filtering
-  - `src/lib/csv.ts` — CSV parsing utilities
-  - `src/lib/reconcile.ts` — reconciliation engine (business logic)
-  - `public/samples/*` — demo datasets
-  - `.github/workflows/deploy-pages.yml` — GitHub Pages deployment
+- `.github/workflows/deploy-pages.yml` builds and deploys `dist/`
+- `vite.config.ts` uses `base: './'` so assets work on GitHub Pages subpaths
