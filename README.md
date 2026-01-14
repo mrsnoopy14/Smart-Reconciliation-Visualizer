@@ -56,65 +56,167 @@ export default defineConfig([
   - Amounts remove common thousands separators and currency symbols; tolerance is an **absolute** value.
   - Dates are normalized to `YYYY-MM-DD` when parseable.
 
+  ## Smart Reconciliation Visualizer
+
+  Interactive dashboard to reconcile two financial datasets (CSV) and quickly identify:
+
+  - Matched records
+  - Mismatched records (with reasons)
+  - Missing records (present in one dataset but not the other)
+  - Duplicate keys (ambiguous matches)
+
+  ### Live Demo
+
+  - https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/
+
+  If the live site ever looks outdated, hard refresh (`Ctrl+F5`) or open in Incognito.
+
+  ---
+
+  ## Project Task Coverage (What This App Delivers)
+
+  - **Upload/Input:** Upload CSV files or paste CSV text for both datasets.
+  - **Reconcile:** Match records using user-selected key columns; optionally compare amount/date.
+  - **Output categories:** matched, mismatched, missing in left/right, and duplicate-key.
+  - **Visualization:** KPI summary + charts to understand results at a glance.
+  - **Explore results:** Filter by status + search across key/reasons/row previews.
+  - **Deployment:** Hosted as a static site via GitHub Pages.
+
+  ---
+
+  ## Features
+
+  - Upload two CSVs (Left + Right) or paste CSV text
+  - Auto-suggest common columns (invoice/id, amount, date) to speed setup
+  - Configurable matching:
+    - Key columns (required)
+    - Amount column (optional) with tolerance
+    - Date column (optional)
+  - KPI cards + charts (pie + bar)
+  - Results table with filter chips + search
+  - Sample datasets included for demos
+
+  ---
+
+  ## How It Works (Interview-Oriented Explanation)
+
+  ### 1) CSV Parsing
+
+  CSV files/text are parsed in the browser using `papaparse` into:
+
+  - `headers: string[]`
+  - `rows: Array<Record<string, string>>`
+
+  Why: CSV parsing is tricky (quotes, commas, line breaks). PapaParse handles real-world CSVs reliably.
+
+  Core code: `src/lib/csv.ts`
+
+  ### 2) Matching Key (Composite Key)
+
+  The user selects “key columns” for each dataset (e.g., `InvoiceNo`, or `InvoiceNo + Vendor`).
+  Those values are combined into a single composite key so that one transaction can be uniquely identified.
+
+  Why: Financial data rarely has a perfect single ID across systems; composite keys are practical.
+
+  ### 3) Fast Reconciliation (Index + Scan)
+
+  The reconciliation engine builds an index (bucket map) for one side (right dataset) keyed by the composite key.
+  Then it scans the other side (left dataset) and looks up matches.
+
+  Why: This avoids slow nested loops and scales much better than comparing every row to every other row.
+
+  Core code: `src/lib/reconcile.ts`
+
+  ### 4) Status Classification
+
+  Each output row is classified into one of:
+
+  - `matched`: key found and optional comparisons pass
+  - `mismatched`: key found but amount/date comparisons fail
+  - `missing_in_right`: left row has no match in right
+  - `missing_in_left`: right row has no match in left
+  - `duplicate_key`: multiple right rows share the same key (ambiguous)
+
+  Why duplicates matter: duplicates are a common reconciliation issue; treating them separately prevents misleading “missing” results.
+
+  ### 5) Visual + Searchable Output
+
+  The UI shows:
+
+  - KPI cards for quick counts
+  - Charts for distribution of statuses
+  - A searchable/filterable table for row-level investigation
+
+  Why: Reconciliation requires both high-level health metrics and row-level drill-down.
+
+  ---
+
+  ## Tech Stack
+
+  - **Vite + React + TypeScript** (fast dev/build + safe types)
+  - **Tailwind CSS** (quickly build a clean dashboard UI)
+  - **PapaParse** (robust CSV parsing in-browser)
+  - **Recharts** (charts for summary visualization)
+  - **GitHub Pages (Actions)** (free static hosting for a live demo)
+
+  ---
+
   ## Run Locally
 
-  Prereqs: Node.js 18+
+  Prerequisites: Node.js 18+
 
   ```bash
   npm install
   npm run dev
   ```
 
-  Then open the local URL shown in the terminal.
+  Open the local URL printed in the terminal.
+
+  Build production bundle:
+
+  ```bash
+  npm run build
+  npm run preview
+  ```
+
+  ---
 
   ## How To Use
 
-  1. Upload (or paste) **Left** and **Right** datasets.
-  2. Choose **key columns** for each dataset (required).
-  3. Optionally select **amount** and **date** columns + set an amount tolerance.
+  1. Load both datasets (Left and Right) via upload or paste.
+  2. Select key columns for each dataset.
+  3. Optionally select amount/date columns and set an amount tolerance.
   4. Click **Run reconciliation**.
-  5. Filter/search the results table.
+  5. Use filter chips + search to explore mismatches/missing/duplicates.
+
+  ---
 
   ## Sample Data
 
-  Use the **Load sample data** button, or see:
+  Use the **Load sample data** button, or open:
 
-  - [public/samples/purchases.csv](public/samples/purchases.csv)
-  - [public/samples/sales.csv](public/samples/sales.csv)
+  - public/samples/purchases.csv
+  - public/samples/sales.csv
 
-  ## Deployment (Live Demo)
+  ---
 
-  ### GitHub Pages (recommended)
+  ## Deployment
 
-  This repo includes a GitHub Actions workflow that deploys the built `dist/` folder to GitHub Pages.
+  ### GitHub Pages (already configured)
 
-  1. Create a new GitHub repository
-  2. Add the remote and push:
+  This repo includes a GitHub Actions workflow that builds the app and deploys `dist/` to GitHub Pages.
 
-  ```bash
-  git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPO_NAME>.git
-  git push -u origin main
-  ```
+  Key config:
 
-  3. In GitHub repo settings → **Pages**:
-    - Set **Source** to **GitHub Actions**
-  4. Pushes to `main` will deploy automatically.
+  - `.github/workflows/deploy-pages.yml` (build + deploy)
+  - `vite.config.ts` uses `base: './'` so assets work on GitHub Pages subpaths
 
-  ### Vercel
+  ---
 
-  1. Push this repo to GitHub
-  2. Import into Vercel
-  3. Build command: `npm run build`
-  4. Output directory: `dist`
+  ## Project Structure (Quick Map)
 
-  ### Netlify
-
-  1. New site from Git
-  2. Build command: `npm run build`
-  3. Publish directory: `dist`
-
-  ## Live Demo URL
-
-  - https://mrsnoopy14.github.io/Smart-Reconciliation-Visualizer/
-
-  If you still see an older UI, do a hard refresh (Ctrl+F5) or open in Incognito.
+  - `src/App.tsx` — UI, state management, charts, filtering
+  - `src/lib/csv.ts` — CSV parsing utilities
+  - `src/lib/reconcile.ts` — reconciliation engine (business logic)
+  - `public/samples/*` — demo datasets
+  - `.github/workflows/deploy-pages.yml` — GitHub Pages deployment
